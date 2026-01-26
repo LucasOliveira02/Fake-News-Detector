@@ -1,0 +1,54 @@
+{
+    "trusted_sources": [
+        {
+            "id": "ap",
+            "name": "Associated Press",
+            "url": "https://apnews.com/"
+        },
+        {
+            "id": "reuters",
+            "name": "Reuters",
+            "url": "https://www.reuters.com/"
+        },
+        {
+            "id": "bbc",
+            "name": "BBC News",
+            "url": "https://www.bbc.com/news"
+        },
+        {
+            "id": "npr",
+            "name": "NPR",
+            "url": "https://www.npr.org/"
+        },
+        {
+            "id": "pbs",
+            "name": "PBS NewsHour",
+            "url": "https://www.pbs.org/newshour/"
+        },
+        {
+            "id": "wsj",
+            "name": "The Wall Street Journal",
+            "url": "https://www.wsj.com/"
+        },
+        {
+            "id": "nyt",
+            "name": "The New York Times",
+            "url": "https://www.nytimes.com/"
+        },
+        {
+            "id": "washingtonpost",
+            "name": "The Washington Post",
+            "url": "https://www.washingtonpost.com/"
+        },
+        {
+            "id": "theguardian",
+            "name": "The Guardian",
+            "url": "https://www.theguardian.com/"
+        },
+        {
+            "id": "bloomberg",
+            "name": "Bloomberg",
+            "url": "https://www.bloomberg.com/"
+        }
+    ]
+}

@@ -1,0 +1,35 @@
+{
+    "trusted_facts": [
+        {
+            "topic": "climate_change",
+            "keywords": [
+                "climate",
+                "warming",
+                "temperature",
+                "global warming"
+            ],
+            "fact_statement": "Global temperatures have risen by approximately 1.1°C since the late 19th century.",
+            "key_values": {
+                "direction": "rise",
+                "magnitude": 1.1
+            },
+            "source": "NASA"
+        },
+        {
+            "topic": "earth_shape",
+            "keywords": [
+                "flat earth",
+                "round earth",
+                "shape of earth",
+                "sphere",
+                "earth is flat",
+                "flat"
+            ],
+            "fact_statement": "The Earth is an oblate spheroid, not flat.",
+            "key_values": {
+                "shape": "sphere"
+            },
+            "source": "NASA"
+        }
+    ]
+}
