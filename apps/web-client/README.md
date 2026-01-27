@@ -31,6 +31,3 @@ The "Proximity Score" indicates how closely a user's input matches content from 
 
 ---
 
-# React + Vite (Standard Template)
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-...
