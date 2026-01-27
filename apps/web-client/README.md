@@ -1,16 +1,36 @@
-# React + Vite
+# Fake News Detector
 
+This application helps users verify claims by cross-referencing them with trusted sources and known facts.
+
+## Proximity Score Calculation Logic
+The "Proximity Score" indicates how closely a user's input matches content from a trusted source (e.g., BBC, Reuters) when a URL is provided.
+
+### 1. Source Extraction
+- The system scans the user's text for URLs from a known list of trusted domains (`trusted_sources.json`).
+- If a trusted URL is found, the system fetches the webpage content.
+
+### 2. Smart Chunking
+- To prevent score dilution (where a short claim matches poorly against a long article), the source text is split into individual **paragraphs**.
+- The system compares the user's text against these specific chunks rather than the entire document.
+
+### 3. Verification Method (Hybrid)
+ The system uses a two-step approach:
+
+#### A. LLM-Based Verification (Primary)
+- If an `OPENAI_API_KEY` is available in the environment, the system uses **GPT-4o-mini**.
+- It sends the relevant source paragraphs and the user's claim to the LLM.
+- The LLM analyzes the semantic meaning and returns:
+    - A **Score (0-100)**: Representing how well the source supports the claim.
+    - **Reasoning**: A brief explanation of the verdict.
+
+#### B. Jaccard Similarity Heuristic (Fallback)
+- If no API key is present, the system falls back to a mathematical approach.
+- It calculates the **Jaccard Similarity** (intersection of words / union of words) between the user's text and **each paragraph** of the source.
+- The **maximum score** obtained from the best-matching paragraph is used as the Proximity Score.
+- This ensures that if the claim is valid and contained in one specific paragraph, it receives a high score even if the rest of the article is unrelated.
+
+---
+
+# React + Vite (Standard Template)
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+...

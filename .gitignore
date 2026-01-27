@@ -10,6 +10,7 @@ npm-debug.log
 __pycache__/
 *.py[cod]
 venv/
+.venv/
 .env
 
 # Editor

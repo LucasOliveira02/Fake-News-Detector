@@ -3,6 +3,11 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import random
 import time
+import requests
+from bs4 import BeautifulSoup
+import re
+import os
+from openai import OpenAI
 
 app = FastAPI()
 
@@ -46,7 +51,8 @@ async def predict_ai_usage(request: TextRequest):
     import os
     
     try:
-        with open("data/trusted_sources.json", "r") as f:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base_dir, "data/trusted_sources.json"), "r") as f:
             data = json.load(f)
             source_list = data.get("trusted_sources", [])
             # Map id -> source for easy lookup
@@ -55,6 +61,7 @@ async def predict_ai_usage(request: TextRequest):
     except Exception as e:
         print(f"Error loading trusted sources: {e}")
         trusted_sources_map = {}
+        trusted_sources = []
 
     # Check for trusted source match or partial match (name only)
     matched_source = None
@@ -76,9 +83,120 @@ async def predict_ai_usage(request: TextRequest):
             # We don't break here, in case another source has a valid URL match later in the loop
             # But if we finish the loop without a URL match, this flag stays True
 
+    # ---------------------------------------------------------
+    # Verification & Proximity Score Calculation
+    # ---------------------------------------------------------
+    proximity_score = None
+    verification_msg = "No verification attempted"
+
+    def get_token_set(s):
+        return set(re.findall(r'\w+', s.lower()))
+
+    def calculate_jaccard(text1, text2):
+        tokens1 = get_token_set(text1)
+        tokens2 = get_token_set(text2)
+        if not tokens1 or not tokens2:
+            return 0.0
+        intersection = tokens1.intersection(tokens2)
+        union = tokens1.union(tokens2)
+        return (len(intersection) / len(union)) * 100
+
+    if is_trusted and matched_source:
+        try:
+            # 1. Extract the actual URL from the text
+            found_urls = re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[/\w\.-]*', request.text)
+            
+            target_url = None
+            base_url = matched_source["url"].rstrip("/")
+            for u in found_urls:
+                if base_url in u:
+                    target_url = u
+                    break
+            
+            if target_url:
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                resp = requests.get(target_url, headers=headers, timeout=5)
+                
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    
+                    # chunking strategy: split by paragraphs to avoid dilution
+                    paragraphs = [p.get_text().strip() for p in soup.find_all('p') if len(p.get_text().strip()) > 50]
+                    
+                    # Method 1: LLM Verification (if key exists)
+                    api_key = os.environ.get("OPENAI_API_KEY")
+                    if api_key:
+                        try:
+                            client = OpenAI(api_key=api_key)
+                            # Create a context from the first few paragraphs or best matching ones
+                            # For simplicity, let's take the first 3000 chars of relevant text
+                            context_text = " ".join(paragraphs)[:3000]
+                            
+                            prompt = f"""
+                            Source Text: "{context_text}"
+                            
+                            User Claim: "{request.text}"
+                            
+                            Task: Verify if the User Claim is supported by the Source Text.
+                            Return a JSON object with:
+                            - score: A number between 0 and 100 indicating how well the claim is supported (100 = fully supported).
+                            - reasoning: A brief explanation.
+                            """
+                            
+                            completion = client.chat.completions.create(
+                                model="gpt-4o-mini",
+                                messages=[
+                                    {"role": "system", "content": "You are a fact-checking assistant. Respond in JSON."},
+                                    {"role": "user", "content": prompt}
+                                ],
+                                response_format={"type": "json_object"}
+                            )
+                            import json
+                            result = json.loads(completion.choices[0].message.content)
+                            proximity_score = result.get("score", 0)
+                            verification_msg = f"AI Verified against {target_url}: {result.get('reasoning', 'No reasoning provided')}"
+                            
+                        except Exception as llm_ex:
+                            print(f"LLM Verification failed, falling back to heuristic: {llm_ex}")
+                            api_key = None # Trigger fallback
+
+                    # Method 2: Heuristic "Best Paragraph Match" (Fallback)
+                    if not api_key:
+                        max_score = 0.0
+                        best_chunk = ""
+                        
+                        # Compare user text against each paragraph individually
+                        # This avoids diluting the score with the entire 1000-word article
+                        for p in paragraphs:
+                            score = calculate_jaccard(request.text, p)
+                            if score > max_score:
+                                max_score = score
+                                best_chunk = p
+                        
+                        proximity_score = max_score
+                        verification_msg = f"Verified against {target_url} (Best paragraph match)"
+                        
+                else:
+                    verification_msg = f"Failed to fetch {target_url} (Result: {resp.status_code})"
+            else:
+                 verification_msg = "Trusted source matched, but specific URL could not be extracted."
+
+        except Exception as ex:
+            print(f"Verification Check Failed: {ex}")
+            verification_msg = f"Error during verification: {ex}"
+            
+    elif source_citation_missing:
+        proximity_score = 0.0
+        verification_msg = "Source named but no URL provided. Cannot verify."
+    # ---------------------------------------------------------
+    # END: Verification & Proximity Calculation
+    # ---------------------------------------------------------
+
     # Mock score calculation
     # Ideally, we want some variation.
     score = random.randint(0, 100)
+    # uncomment this line if to test proximity_score
+    # score = proximity_score if proximity_score is not None else 99
     
     verdict = "Likely Human-Written"
     
@@ -95,7 +213,8 @@ async def predict_ai_usage(request: TextRequest):
     # Load trusted facts (Claim Reviews)
     claim_reviews = []
     try:
-        with open("data/trusted_facts.json", "r") as f:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base_dir, "data/trusted_facts.json"), "r") as f:
             data = json.load(f)
             claim_reviews = data.get("claim_reviews", [])
     except Exception as e:
@@ -138,7 +257,6 @@ async def predict_ai_usage(request: TextRequest):
                     break
                 
                 # Check for Embellishment (Numbers way higher than 1.1)
-                import re
                 numbers = re.findall(r"[-+]?\d*\.\d+|\d+", request.text)
                 for num in numbers:
                     try:
@@ -189,7 +307,9 @@ async def predict_ai_usage(request: TextRequest):
         "word_count": word_count,
         "processing_time": "0.05s",
         "citation_warning": citation_missing_warning,
-        "fact_check_warning": fact_check_warning
+        "fact_check_warning": fact_check_warning,
+        "proximity_score": proximity_score,
+        "verification_msg": verification_msg
     }
     
     return {
