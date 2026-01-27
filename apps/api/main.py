@@ -45,13 +45,16 @@ async def predict_ai_usage(request: TextRequest):
     import json
     import os
     
-    trusted_sources = []
     try:
         with open("data/trusted_sources.json", "r") as f:
             data = json.load(f)
-            trusted_sources = data.get("trusted_sources", [])
+            source_list = data.get("trusted_sources", [])
+            # Map id -> source for easy lookup
+            trusted_sources_map = {s["id"]: s for s in source_list}
+            trusted_sources = source_list # Keep list for existing iteration
     except Exception as e:
         print(f"Error loading trusted sources: {e}")
+        trusted_sources_map = {}
 
     # Check for trusted source match or partial match (name only)
     matched_source = None
@@ -89,36 +92,52 @@ async def predict_ai_usage(request: TextRequest):
     # Return structure matching what frontend expects
 
 
-    # Load trusted facts
-    trusted_facts = []
+    # Load trusted facts (Claim Reviews)
+    claim_reviews = []
     try:
         with open("data/trusted_facts.json", "r") as f:
             data = json.load(f)
-            trusted_facts = data.get("trusted_facts", [])
+            claim_reviews = data.get("claim_reviews", [])
     except Exception as e:
-        print(f"Error loading trusted facts: {e}")
+        print(f"Error loading trusted facts/claims: {e}")
 
     # Check for contradictions/embellishments against trusted facts
     fact_check_warning = None
     
-    for fact in trusted_facts:
+    
+    for claim in claim_reviews:
         # Check if topic is relevant (keyword match)
-        matches = [k for k in fact["keywords"] if k in request.text.lower()]
+        matches = [k for k in claim["keywords"] if k in request.text.lower()]
+        
+        # Get source info
+        source_id = claim.get("source_id")
+        source_name = trusted_sources_map.get(source_id, {}).get("name", "Unknown Source")
+
+        # 0. Check for Direct Match / Confirmation
+        # If the user text contains the Article URL OR matches the Article Content roughly
+        if claim.get("source_article_url") and claim["source_article_url"] in request.text:
+             is_trusted = True
+             matched_source = trusted_sources_map.get(source_id)
+             score = random.randint(10, 20) # Low AI score
+             verdict = "Verified by Trusted Source"
+             # Break early if verified? Or continue to check for contradictions? 
+             # Let's say verification overrides simple checks
+             break
+        
         if matches:
             # Topic detected
-            # 1. Check for Contradictions (Simple Heuristic for Demo)
             lower_text = request.text.lower()
             
-            if fact["topic"] == "climate_change":
+            # 1. Check for Contradictions (Simple Heuristic for Demo)
+            if claim["topic"] == "climate_change":
                 # If text claims cooling/dropping temperatures when fact says warming/rising
                 if any(x in lower_text for x in ["cooling", "dropped", "falling", "not warming", "ice age"]):
                     score = random.randint(85, 100)
                     verdict = "Potential AI-Generated (Contradicts Trusted Facts)"
-                    fact_check_warning = f"Claim contradicts trusted fact from {fact['source']}: {fact['fact_statement']}"
+                    fact_check_warning = f"Claim contradicts trusted fact from {source_name}: {claim['claim_reviewed']}"
                     break
                 
                 # Check for Embellishment (Numbers way higher than 1.1)
-                # Very simple regex to find numbers
                 import re
                 numbers = re.findall(r"[-+]?\d*\.\d+|\d+", request.text)
                 for num in numbers:
@@ -128,17 +147,41 @@ async def predict_ai_usage(request: TextRequest):
                         if val > 5 and "degree" in lower_text:
                              score = random.randint(75, 95)
                              verdict = "Potential AI-Generated (Embellishment)"
-                             fact_check_warning = f"Claim embellishes magnitude. Trusted fact: {fact['fact_statement']}"
+                             fact_check_warning = f"Claim embellishes magnitude. Trusted fact: {claim['claim_reviewed']}"
                              break
                     except:
                         pass
             
-            elif fact["topic"] == "earth_shape":
+            elif claim["topic"] == "earth_shape":
                 # Check for direct flat earth claims
                 if "earth is flat" in lower_text or ("flat" in lower_text and "sphere" not in lower_text and "round" not in lower_text):
                      score = random.randint(90, 100)
                      verdict = "Potential AI-Generated (Scientific Contradiction)"
-                     fact_check_warning = f"Claim contradicts scientific consensus from {fact['source']}: {fact['fact_statement']}"
+                     fact_check_warning = f"Claim contradicts scientific consensus from {source_name}: {claim['claim_reviewed']}"
+                     break
+
+            elif claim["topic"] == "spelling_strawberry":
+                 # Check for incorrect '2 rs' claim
+                 if "2 r" in lower_text or "two r" in lower_text:
+                     score = random.randint(90, 100)
+                     verdict = "Potential AI-Generated (Hallucination)"
+                     fact_check_warning = f"Claim contains a common AI hallucination regarding spelling. Fact from {source_name}: {claim['claim_reviewed']}"
+                     break
+
+            elif claim["topic"] == "dietary_health":
+                 # Check for 'eat rocks' recommendation
+                 if "eat rocks" in lower_text or "eating rocks" in lower_text or "eat stones" in lower_text:
+                     score = random.randint(95, 100)
+                     verdict = "Potential AI-Generated (Dangerous Hallucination)"
+                     fact_check_warning = f"Claim promotes dangerous non-food ingestion. Fact from {source_name}: {claim['claim_reviewed']}"
+                     break
+
+            elif claim["topic"] == "moon_landing":
+                 # Check for 'faked' or 'hoax' claims
+                 if any(x in lower_text for x in ["faked", "hoax", "staged", "not real", "studio", "kubrick"]):
+                     score = random.randint(90, 100)
+                     verdict = "Potential AI-Generated (Conspiracy Theory)"
+                     fact_check_warning = f"Claim contradicts historical record from {source_name}: {claim['claim_reviewed']}"
                      break
 
     # Consolidate warnings

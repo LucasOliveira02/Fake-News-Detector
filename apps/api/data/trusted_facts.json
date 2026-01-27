@@ -1,22 +1,30 @@
 {
-    "trusted_facts": [
+    "claim_reviews": [
         {
             "topic": "climate_change",
+            "claim_reviewed": "Global temperatures have risen by approximately 1.1°C since the late 19th century.",
+            "source_id": "nasa",
+            "source_article_url": "https://climate.nasa.gov/vital-signs/global-temperature/",
+            "source_article_content": "The average global temperature on Earth has increased by at least 1.1° Celsius (1.9° Fahrenheit) since 1880.",
+            "rating": "TRUE",
             "keywords": [
                 "climate",
                 "warming",
                 "temperature",
                 "global warming"
             ],
-            "fact_statement": "Global temperatures have risen by approximately 1.1°C since the late 19th century.",
             "key_values": {
                 "direction": "rise",
                 "magnitude": 1.1
-            },
-            "source": "NASA"
+            }
         },
         {
             "topic": "earth_shape",
+            "claim_reviewed": "The Earth is an oblate spheroid, not flat.",
+            "source_id": "nasa",
+            "source_article_url": "https://www.nasa.gov/audience/forstudents/5-8/features/nasa-knows/what-is-earth-58.html",
+            "source_article_content": "Earth is not a perfect sphere. It is an oblate spheroid.",
+            "rating": "TRUE",
             "keywords": [
                 "flat earth",
                 "round earth",
@@ -25,11 +33,65 @@
                 "earth is flat",
                 "flat"
             ],
-            "fact_statement": "The Earth is an oblate spheroid, not flat.",
             "key_values": {
                 "shape": "sphere"
-            },
-            "source": "NASA"
+            }
+        },
+        {
+            "topic": "spelling_strawberry",
+            "claim_reviewed": "The word 'strawberry' contains 3 'r's, not 2.",
+            "source_id": "merriamwebster",
+            "source_article_url": "https://www.merriam-webster.com/dictionary/strawberry",
+            "source_article_content": "strawberry: a sweet red fruit",
+            "rating": "TRUE",
+            "keywords": [
+                "strawberry",
+                "spelling",
+                "letters",
+                "count",
+                "how many r"
+            ],
+            "key_values": {
+                "r_count": 3
+            }
+        },
+        {
+            "topic": "dietary_health",
+            "claim_reviewed": "Humans should not eat rocks or stones.",
+            "source_id": "nih",
+            "source_article_url": "https://www.nih.gov/",
+            "source_article_content": "Eating non-food items like dirt or rocks is a disorder called pica and is harmful.",
+            "rating": "TRUE",
+            "keywords": [
+                "eat rocks",
+                "eating rocks",
+                "eat stones",
+                "eating stones",
+                "pebbles",
+                "rocks per day"
+            ],
+            "key_values": {
+                "edible": false
+            }
+        },
+        {
+            "topic": "moon_landing",
+            "claim_reviewed": "NASA astronauts landed on the moon in 1969.",
+            "source_id": "nasa",
+            "source_article_url": "https://www.nasa.gov/mission_pages/apollo/apollo11.html",
+            "source_article_content": "On July 20, 1969, Neil Armstrong became the first human to step on the moon.",
+            "rating": "TRUE",
+            "keywords": [
+                "moon landing",
+                "faked",
+                "hoax",
+                "apollo 11",
+                "studio",
+                "stanley kubrick"
+            ],
+            "key_values": {
+                "event": "real"
+            }
         }
     ]
 }

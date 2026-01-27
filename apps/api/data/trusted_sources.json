@@ -49,6 +49,46 @@
             "id": "bloomberg",
             "name": "Bloomberg",
             "url": "https://www.bloomberg.com/"
+        },
+        {
+            "id": "datagov",
+            "name": "Data.gov",
+            "url": "https://data.gov/"
+        },
+        {
+            "id": "eurostat",
+            "name": "Eurostat",
+            "url": "https://ec.europa.eu/eurostat"
+        },
+        {
+            "id": "worldbank",
+            "name": "World Bank Open Data",
+            "url": "https://data.worldbank.org/"
+        },
+        {
+            "id": "kaggle",
+            "name": "Kaggle Datasets",
+            "url": "https://www.kaggle.com/datasets"
+        },
+        {
+            "id": "awsopendata",
+            "name": "AWS Open Data Registry",
+            "url": "https://registry.opendata.aws/"
+        },
+        {
+            "id": "nasa",
+            "name": "NASA",
+            "url": "https://www.nasa.gov/"
+        },
+        {
+            "id": "merriamwebster",
+            "name": "Merriam-Webster",
+            "url": "https://www.merriam-webster.com/"
+        },
+        {
+            "id": "nih",
+            "name": "National Institutes of Health",
+            "url": "https://www.nih.gov/"
         }
     ]
 }
