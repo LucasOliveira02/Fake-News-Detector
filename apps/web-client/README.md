@@ -29,5 +29,3 @@ The "Proximity Score" indicates how closely a user's input matches content from 
 - The **maximum score** obtained from the best-matching paragraph is used as the Proximity Score.
 - This ensures that if the claim is valid and contained in one specific paragraph, it receives a high score even if the rest of the article is unrelated.
 
----
-
