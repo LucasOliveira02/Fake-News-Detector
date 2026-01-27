@@ -8,7 +8,10 @@ def test_api():
     payload_trusted = {"text": "Check this article from https://www.bbc.com/news regarding the event."}
     try:
         response = requests.post(url, json=payload_trusted)
-        print(json.dumps(response.json(), indent=2))
+        data = response.json()
+        print(json.dumps(data, indent=2))
+        if "details" in data:
+            print(f"Details: {data['details']}")
     except Exception as e:
         print(f"Failed: {e}")
 
