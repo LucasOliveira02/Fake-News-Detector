@@ -2,85 +2,163 @@ import { useState } from 'react';
 import './App.css';
 
 function App() {
+  const [activeTab, setActiveTab] = useState('text');
   const [inputText, setInputText] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleScan = async () => {
-    if (!inputText.trim()) return;
+  const API_BASE = "http://localhost:8000";
 
-    setIsScanning(true);
+  const handleAnalyze = async () => {
+    setLoading(true);
+    setError(null);
     setResult(null);
 
-    // Call the backend API
     try {
-      const response = await fetch('http://localhost:8000/predict', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: inputText }),
+      let endpoint = "";
+      let payload = {};
+      let headers = { "Content-Type": "application/json" };
+      let body = null;
+
+      if (activeTab === 'text') {
+        endpoint = "/detect/text";
+        payload = { text: inputText };
+        body = JSON.stringify(payload);
+      } else if (activeTab === 'image') {
+        endpoint = "/detect/image";
+        payload = { image_url: imageUrl };
+        body = JSON.stringify(payload);
+      } else if (activeTab === 'video') {
+        endpoint = "/detect/video";
+        payload = { video_url: videoUrl };
+        body = JSON.stringify(payload);
+      } else if (activeTab === 'file') {
+        endpoint = "/detect/file";
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        headers = {}; // Let browser set boundary
+        body = formData;
+      }
+
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: headers,
+        body: body,
       });
 
       if (!response.ok) {
-        throw new Error('Analysis failed');
+        throw new Error(`Server Error: ${response.status}`);
       }
 
       const data = await response.json();
+      setResult(data);
 
-      setResult({
-        score: data.score,
-        verdict: data.verdict
-      });
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Failed to connect to the analysis server. Make sure the backend is running.');
+    } catch (err) {
+      setError(err.message);
     } finally {
-      setIsScanning(false);
+      setLoading(false);
     }
   };
 
+  const getScoreColor = (score) => {
+    if (score < 30) return "#4caf50"; // Green (Human/Real)
+    if (score < 70) return "#ff9800"; // Orange (Uncertain)
+    return "#f44336"; // Red (AI/Fake)
+  };
+
   return (
-    <div className="app-container">
-      <div className="glass-card">
-        <header className="header">
-          <h1>Fake News <span className="gradient-text">Detector</span></h1>
-          <p>Analyze text for potential AI generation with advanced models.</p>
-        </header>
+    <div className="container">
+      <header className="header">
+        <h1>🔍 AI Content Detector</h1>
+        <p>Analyze Text, Images, Videos, and Files for AI Generation</p>
+      </header>
 
-        <main className="main-content">
-          <textarea
-            className="text-input"
-            placeholder="Paste your text here to analyze..."
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            rows={8}
-          />
+      <div className="tabs">
+        <button className={activeTab === 'text' ? 'active' : ''} onClick={() => setActiveTab('text')}>📝 Text</button>
+        <button className={activeTab === 'image' ? 'active' : ''} onClick={() => setActiveTab('image')}>🖼️ Image URL</button>
+        <button className={activeTab === 'video' ? 'active' : ''} onClick={() => setActiveTab('video')}>🎥 Video URL</button>
+        <button className={activeTab === 'file' ? 'active' : ''} onClick={() => setActiveTab('file')}>📁 File Upload</button>
+      </div>
 
-          <button
-            className={`scan-button ${isScanning ? 'scanning' : ''}`}
-            onClick={handleScan}
-            disabled={isScanning || !inputText.trim()}
-          >
-            {isScanning ? 'Scanning...' : 'Scan Text'}
-          </button>
+      <main className="main-content">
+        <div className="input-section">
+          {activeTab === 'text' && (
+            <textarea
+              placeholder="Paste text here to analyze..."
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              rows={8}
+            />
+          )}
 
-          {result && (
-            <div className="result-area fade-in">
-              <div className="result-card">
-                <h3>Analysis Result</h3>
-                <div className="score-display">
-                  <span className="score-label">AI Probability:</span>
-                  <span className={`score-value ${result.score > 50 ? 'high' : 'low'}`}>
-                    {result.score}%
-                  </span>
-                </div>
-                <p className="verdict">{result.verdict}</p>
-              </div>
+          {activeTab === 'image' && (
+            <input
+              type="text"
+              placeholder="Paste Image URL..."
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+            />
+          )}
+
+          {activeTab === 'video' && (
+            <input
+              type="text"
+              placeholder="Paste Video URL (MP4/WebM)..."
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+            />
+          )}
+
+          {activeTab === 'file' && (
+            <div className="file-upload">
+              <input
+                type="file"
+                onChange={(e) => setSelectedFile(e.target.files[0])}
+              />
+              {selectedFile && <p>Selected: {selectedFile.name}</p>}
             </div>
           )}
-        </main>
-      </div>
+
+          <button
+            className="analyze-btn"
+            onClick={handleAnalyze}
+            disabled={loading || (activeTab === 'text' && !inputText) || (activeTab === 'image' && !imageUrl) || (activeTab === 'file' && !selectedFile)}
+          >
+            {loading ? "Analyzing..." : "Analyze Content"}
+          </button>
+
+          {error && <div className="error-msg">{error}</div>}
+        </div>
+
+        {result && (
+          <div className="result-section">
+            <h2>Analysis Result</h2>
+
+            <div className="score-card" style={{ borderColor: getScoreColor(result.score) }}>
+              <div className="score-value" style={{ color: getScoreColor(result.score) }}>
+                {result.score.toFixed(1)}%
+              </div>
+              <div className="score-label">AI Generation Probability</div>
+            </div>
+
+            <div className="verdict">
+              <strong>Verdict:</strong> {result.verdict}
+            </div>
+
+            {result.details && (
+              <div className="details">
+                <h3>Details</h3>
+                <pre>{JSON.stringify(result.details, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

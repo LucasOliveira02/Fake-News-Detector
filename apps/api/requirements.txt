@@ -1,3 +1,11 @@
 fastapi
 uvicorn
 pydantic
+requests
+beautifulsoup4
+python-multipart
+pypdf
+Pillow
+opencv-python-headless
+python-dotenv
+huggingface_hub
