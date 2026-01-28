@@ -10,6 +10,8 @@ from PIL import Image
 import numpy as np
 import cv2
 from pypdf import PdfReader
+import docx
+import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -323,12 +325,62 @@ async def analyze_file(file: UploadFile = File(...)):
             verdict = res["verdict"]
             details = {"type": "image"}
             
-        elif "text" in content_type:
-             text = contents.decode("utf-8")
-             res = detect_ai_text(text)
-             score = res["score"]
-             verdict = res["verdict"]
-             details = {"type": "text_file"}
+        elif "plain" in content_type or "text" in content_type:
+            # Text File
+            text = contents.decode("utf-8")
+            res = detect_ai_text(text)
+            score = res["score"]
+            verdict = res["verdict"]
+            details = {"type": "text_file"}
+             
+        elif "wordprocessingml" in content_type:
+            # Word Document
+            doc = docx.Document(io.BytesIO(contents))
+            text = "\n".join([para.text for para in doc.paragraphs])
+            res = detect_ai_text(text[:2000])
+            score = res["score"]
+            verdict = res["verdict"]
+            details = {"type": "docx", "extracted_chars": len(text)}
+            
+        elif "spreadsheetml" in content_type or "excel" in content_type:
+            # Excel Spreadsheet
+            df = pd.read_excel(io.BytesIO(contents))
+            # Flatten and convert all non-null values to strings
+            text_data = [str(val) for val in df.values.flatten() if pd.notna(val)]
+            text_block = " ".join(text_data[:1000]) # Limit to 1000 words/cells
+            res = detect_ai_text(text_block)
+            score = res["score"]
+            verdict = res["verdict"]
+            details = {"type": "xlsx", "rows": len(df)}
+            
+        elif "video" in content_type:
+            # Video Upload
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                tmp.write(contents)
+                tmp_path = tmp.name
+            
+            try:
+                frames = extract_frames(tmp_path)
+                if not frames:
+                    return {"score": 0, "verdict": "Could not extract frames from video"}
+                
+                scores = []
+                for frame in frames:
+                    res = detect_ai_image(image_bytes=frame)
+                    scores.append(res['score'])
+                
+                avg_score = sum(scores) / len(scores) if scores else 0
+                score = avg_score
+                
+                if score > 80: verdict = "Highly Likely Deepfake/AI Video"
+                elif score > 50: verdict = "Potential Deepfake"
+                else: verdict = "Likely Authentic Video"
+                
+                details = {"type": "video", "frames_analyzed": len(frames)}
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
              
     except Exception as e:
         return {"score": 0, "verdict": f"File Error: {str(e)}"}
