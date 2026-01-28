@@ -163,25 +163,102 @@ input[type="text"]:focus {
 }
 
 /* File Upload */
-.file-upload {
+.file-upload-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.file-upload-label {
+  width: 100%;
   border: 2px dashed #475569;
-  border-radius: 12px;
-  padding: 3rem;
+  border-radius: 16px;
+  padding: 3rem 1.5rem;
   text-align: center;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: rgba(30, 41, 59, 0.3);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.file-upload-label:hover {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-2px);
+}
+
+.upload-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.upload-text {
+  font-size: 1.1rem;
+  color: var(--color-text-main);
+}
+
+.upload-subtext {
+  font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
-.file-upload:hover {
-  border-color: var(--color-primary);
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--color-primary);
+.browse-btn {
+  margin-top: 0.5rem;
+  background: var(--glass-shard);
+  border: 1px solid var(--color-card-border);
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--color-text-main);
+  transition: all 0.2s;
 }
 
-input[type="file"] {
-  /* Simple reset for file input */
-  font-size: 1rem;
+.file-upload-label:hover .browse-btn {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.selected-file-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.file-name {
+  font-weight: 500;
+  color: var(--color-text-main);
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clear-file {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.clear-file:hover {
+  color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* Analyze Button */
@@ -228,13 +305,6 @@ input[type="file"] {
   animation: slideUp 0.4s ease-out;
 }
 
-.result-section h2 {
-  font-size: 1.5rem;
-  color: var(--color-text-main);
-  margin: 0;
-  text-align: center;
-}
-
 .score-card {
   display: flex;
   flex-direction: column;
@@ -254,6 +324,7 @@ input[type="file"] {
   font-size: 3rem;
   font-weight: 800;
   line-height: 1;
+  text-align: center;
 }
 
 .score-label {
@@ -262,15 +333,18 @@ input[type="file"] {
   letter-spacing: 1px;
   color: var(--color-text-muted);
   margin-top: 0.5rem;
+  text-align: center;
 }
 
 .verdict {
   text-align: center;
-  font-size: 1.25rem;
-  padding: 1rem;
+  font-size: 1.5rem;
+  padding: 1.25rem;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--color-text-main);
+  border: 1px solid var(--color-card-border);
+  margin-bottom: 1rem;
 }
 
 .details {

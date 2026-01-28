@@ -8,16 +8,30 @@ function App() {
   const [videoUrl, setVideoUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
 
-  const [result, setResult] = useState(null);
+  // Result and error tracking are handled as per-tab objects to allow persistence
+  const [tabResults, setTabResults] = useState({
+    text: null,
+    image: null,
+    video: null,
+    file: null
+  });
+  const [tabErrors, setTabErrors] = useState({
+    text: null,
+    image: null,
+    video: null,
+    file: null
+  });
+
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
   const API_BASE = "http://localhost:8000";
 
   const handleAnalyze = async () => {
     setLoading(true);
-    setError(null);
-    setResult(null);
+
+    // Clear previous result/error for THIS tab before starting
+    setTabErrors(prev => ({ ...prev, [activeTab]: null }));
+    setTabResults(prev => ({ ...prev, [activeTab]: null }));
 
     try {
       let endpoint = "";
@@ -56,10 +70,10 @@ function App() {
       }
 
       const data = await response.json();
-      setResult(data);
+      setTabResults(prev => ({ ...prev, [activeTab]: data }));
 
     } catch (err) {
-      setError(err.message);
+      setTabErrors(prev => ({ ...prev, [activeTab]: err.message }));
     } finally {
       setLoading(false);
     }
@@ -71,6 +85,9 @@ function App() {
     return "#f44336"; // Red (AI/Fake)
   };
 
+  const currentResult = tabResults[activeTab];
+  const currentError = tabErrors[activeTab];
+
   return (
     <div className="container">
       <header className="header">
@@ -79,10 +96,30 @@ function App() {
       </header>
 
       <div className="tabs">
-        <button className={activeTab === 'text' ? 'active' : ''} onClick={() => setActiveTab('text')}>📝 Text</button>
-        <button className={activeTab === 'image' ? 'active' : ''} onClick={() => setActiveTab('image')}>🖼️ Image URL</button>
-        <button className={activeTab === 'video' ? 'active' : ''} onClick={() => setActiveTab('video')}>🎥 Video URL</button>
-        <button className={activeTab === 'file' ? 'active' : ''} onClick={() => setActiveTab('file')}>📁 File Upload</button>
+        <button
+          className={activeTab === 'text' ? 'active' : ''}
+          onClick={() => setActiveTab('text')}
+        >
+          📝 Text
+        </button>
+        <button
+          className={activeTab === 'image' ? 'active' : ''}
+          onClick={() => setActiveTab('image')}
+        >
+          🖼️ Image URL
+        </button>
+        <button
+          className={activeTab === 'video' ? 'active' : ''}
+          onClick={() => setActiveTab('video')}
+        >
+          🎥 Video URL
+        </button>
+        <button
+          className={activeTab === 'file' ? 'active' : ''}
+          onClick={() => setActiveTab('file')}
+        >
+          📁 File Upload
+        </button>
       </div>
 
       <main className="main-content">
@@ -115,12 +152,27 @@ function App() {
           )}
 
           {activeTab === 'file' && (
-            <div className="file-upload">
+            <div className="file-upload-container">
+              <label htmlFor="file-input" className="file-upload-label">
+                <div className="upload-icon">📁</div>
+                <div className="upload-text">
+                  <strong>Click to upload</strong> or drag and drop
+                </div>
+                <div className="upload-subtext">PDF, Image, Word, Excel, or Video (max 50MB)</div>
+                <div className="browse-btn">Browse Files</div>
+              </label>
               <input
+                id="file-input"
                 type="file"
+                className="hidden-file-input"
                 onChange={(e) => setSelectedFile(e.target.files[0])}
               />
-              {selectedFile && <p>Selected: {selectedFile.name}</p>}
+              {selectedFile && (
+                <div className="selected-file-badge">
+                  <span className="file-name">📄 {selectedFile.name}</span>
+                  <button className="clear-file" onClick={() => setSelectedFile(null)}>✕</button>
+                </div>
+              )}
             </div>
           )}
 
@@ -132,30 +184,21 @@ function App() {
             {loading ? "Analyzing..." : "Analyze Content"}
           </button>
 
-          {error && <div className="error-msg">{error}</div>}
+          {currentError && <div className="error-msg">{currentError}</div>}
         </div>
 
-        {result && (
+        {currentResult && (
           <div className="result-section">
-            <h2>Analysis Result</h2>
+            <div className="verdict">
+              <strong>Verdict:</strong> {currentResult.verdict}
+            </div>
 
-            <div className="score-card" style={{ borderColor: getScoreColor(result.score) }}>
-              <div className="score-value" style={{ color: getScoreColor(result.score) }}>
-                {result.score.toFixed(1)}%
+            <div className="score-card" style={{ borderColor: getScoreColor(currentResult.score) }}>
+              <div className="score-value" style={{ color: getScoreColor(currentResult.score) }}>
+                {currentResult.score.toFixed(1)}%
               </div>
               <div className="score-label">AI Generation Probability</div>
             </div>
-
-            <div className="verdict">
-              <strong>Verdict:</strong> {result.verdict}
-            </div>
-
-            {result.details && (
-              <div className="details">
-                <h3>Details</h3>
-                <pre>{JSON.stringify(result.details, null, 2)}</pre>
-              </div>
-            )}
           </div>
         )}
       </main>

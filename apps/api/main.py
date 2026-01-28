@@ -203,19 +203,18 @@ async def analyze_text(request: TextRequest):
 async def analyze_image(request: ImageRequest):
     target_url = request.image_url
     
-    # Instagram Logic
+    # If the URL is from Instagram, we need to extract the direct image source
     if "instagram.com" in target_url:
         try:
-            print("DEBUG: Extracting Instagram Image...")
-            L = instaloader.Instaloader()
-            # Extract shortcode: https://www.instagram.com/p/CODE/
+            loader = instaloader.Instaloader()
+            # Extract the post shortcode from the URL
             if "/p/" in target_url:
                 shortcode = target_url.split("/p/")[1].split("/")[0]
-                post = instaloader.Post.from_shortcode(L.context, shortcode)
+                post = instaloader.Post.from_shortcode(loader.context, shortcode)
                 target_url = post.url
-                print(f"DEBUG: Extracted Instagram URL: {target_url[:50]}...")
         except Exception as e:
-            print(f"Instagram Extraction Failed: {e}")
+            # Fallback to the original URL if extraction fails
+            pass
 
     result = detect_ai_image(image_url=target_url)
     return {
@@ -306,22 +305,23 @@ async def analyze_file(file: UploadFile = File(...)):
         contents = await file.read()
         
         if "pdf" in content_type:
-            # Extract text from PDF
+            # Process PDF documents by extracting text content
             try:
                 reader = PdfReader(io.BytesIO(contents))
                 text = ""
                 for page in reader.pages:
                     text += page.extract_text() or ""
                 
-                # Analyze text
+                # Check if the extracted text is sufficient for analysis
                 if not text.strip():
                     return {"score": 0, "verdict": "No readable text found in PDF"}
 
-                res = detect_ai_text(text[:2000]) # Limit
+                # Run text analysis on the first 2000 characters
+                res = detect_ai_text(text[:2000])
                 score = res["score"]
                 verdict = res["verdict"]
                 details = {"type": "pdf", "extracted_chars": len(text)}
-            except Exception as e:
+            except Exception:
                 return {"score": 0, "verdict": "PDF Parsing Failed"}
                 
         elif "image" in content_type:
