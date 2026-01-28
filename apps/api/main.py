@@ -63,6 +63,9 @@ def detect_ai_text(text: str):
     if not api_key:
         return {"score": 0, "verdict": "Likely Human (Dev Mode - No API Key)"}
 
+    if not text or len(text.strip()) < 5:
+        return {"score": 0, "verdict": "Insufficient text for analysis"}
+
     client = InferenceClient(token=api_key, timeout=30)
     # Using a faster DistilBART model
     model_id = "valhalla/distilbart-mnli-12-3"
@@ -311,6 +314,9 @@ async def analyze_file(file: UploadFile = File(...)):
                     text += page.extract_text() or ""
                 
                 # Analyze text
+                if not text.strip():
+                    return {"score": 0, "verdict": "No readable text found in PDF"}
+
                 res = detect_ai_text(text[:2000]) # Limit
                 score = res["score"]
                 verdict = res["verdict"]
