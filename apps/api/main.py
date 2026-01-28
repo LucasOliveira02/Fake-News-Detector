@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 api_key_status = os.environ.get("HUGGINGFACE_API_KEY")
-print(f"DEBUG: Loaded API Key: {'Yes (Starts with ' + api_key_status[:4] + '...)' if api_key_status else 'No'}")
+
 
 app = FastAPI()
 
@@ -59,18 +59,16 @@ def detect_ai_text(text: str):
     if not api_key:
         return {"score": 0, "verdict": "Likely Human (Dev Mode - No API Key)"}
 
-    client = InferenceClient(token=api_key)
-    # Using a robust Zero-Shot Classifier
-    model_id = "facebook/bart-large-mnli"
+    client = InferenceClient(token=api_key, timeout=30)
+    # Using a faster DistilBART model
+    model_id = "valhalla/distilbart-mnli-12-3"
     
     try:
         # Zero-Shot Classification allows us to define arbitrary labels
         # We classify the text into "AI Generated" or "Human Written"
         labels = ["AI Generated", "Human Written"]
         result = client.zero_shot_classification(text[:1000], labels, model=model_id)
-        
-        print(f"DEBUG Response (Zero-Shot): {result}")
-        print("DEBUG: Using patched parsing logic")
+
         
         # Result is a list of objects, e.g. [ZeroShotClassificationOutputElement(label='AI Generated', score=0.9), ...]
         ai_score = 0
@@ -106,8 +104,8 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
     if not api_key:
         return {"score": 0, "verdict": "Likely Real (Dev Mode - No API Key)"}
 
-    client = InferenceClient(token=api_key)
-    model_id = "umereq/ai-image-detector"
+    client = InferenceClient(token=api_key, timeout=30)
+    model_id = "umm-maybe/AI-image-detector"
     
     try:
         # We need to pass URL or bytes. InferenceClient supports image_classification with url/file.
@@ -125,6 +123,7 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
         ai_prob = 0
         
         for r in results:
+            # dima806 model usually returns labels like 'Real' or 'Fake'
             if r.label.lower() in ['artificial', 'ai', 'fake']:
                 ai_prob = r.score * 100
         
@@ -180,7 +179,7 @@ async def analyze_text(request: TextRequest):
         "verdict": result["verdict"],
         "details": {
             "char_count": len(request.text),
-            "model": "facebook/bart-large-mnli (Zero-Shot)"
+            "model": "valhalla/distilbart-mnli-12-3"
         }
     }
 
@@ -192,7 +191,7 @@ async def analyze_image(request: ImageRequest):
         "verdict": result["verdict"],
         "details": {
             "source": "url",
-            "model": "umereq/ai-image-detector"
+            "model": "umm-maybe/AI-image-detector"
         }
     }
 
