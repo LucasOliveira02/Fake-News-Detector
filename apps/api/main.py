@@ -46,6 +46,8 @@ def read_root():
 
 import time
 from huggingface_hub import InferenceClient
+import yt_dlp
+import instaloader
 
 def detect_ai_text(text: str):
     """
@@ -112,26 +114,35 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
         # But for bytes, we might need to wrap in BytesIO or pass as data.
         # However, client.image_classification handles URL string automatically.
         
+        tmp_img_path = None
         if image_url:
             image_input = image_url
         else:
-            image_input = io.BytesIO(image_bytes)
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_img:
+                tmp_img.write(image_bytes)
+                tmp_img_path = tmp_img.name
+            image_input = tmp_img_path
             
-        results = client.image_classification(image_input, model=model_id)
-        
-        # Results is list of ClassLabel (score, label)
-        ai_prob = 0
-        
-        for r in results:
-            # dima806 model usually returns labels like 'Real' or 'Fake'
-            if r.label.lower() in ['artificial', 'ai', 'fake']:
-                ai_prob = r.score * 100
-        
-        if ai_prob > 85: verdict = "Highly Likely AI-Generated"
-        elif ai_prob > 50: verdict = "Likely AI-Generated"
-        else: verdict = "Likely Real Image"
-        
-        return {"score": ai_prob, "verdict": verdict}
+        try:
+            results = client.image_classification(image_input, model=model_id)
+            
+            # Results is list of ClassLabel (score, label)
+            ai_prob = 0
+            
+            for r in results:
+                # dima806 model usually returns labels like 'Real' or 'Fake'
+                if r.label.lower() in ['artificial', 'ai', 'fake']:
+                    ai_prob = r.score * 100
+            
+            if ai_prob > 85: verdict = "Highly Likely AI-Generated"
+            elif ai_prob > 50: verdict = "Likely AI-Generated"
+            else: verdict = "Likely Real Image"
+            
+            return {"score": ai_prob, "verdict": verdict}
+        finally:
+            if tmp_img_path and os.path.exists(tmp_img_path):
+                os.remove(tmp_img_path)
             
     except Exception as e:
         print(f"Image Detection Error: {e}")
@@ -185,7 +196,23 @@ async def analyze_text(request: TextRequest):
 
 @app.post("/detect/image")
 async def analyze_image(request: ImageRequest):
-    result = detect_ai_image(image_url=request.image_url)
+    target_url = request.image_url
+    
+    # Instagram Logic
+    if "instagram.com" in target_url:
+        try:
+            print("DEBUG: Extracting Instagram Image...")
+            L = instaloader.Instaloader()
+            # Extract shortcode: https://www.instagram.com/p/CODE/
+            if "/p/" in target_url:
+                shortcode = target_url.split("/p/")[1].split("/")[0]
+                post = instaloader.Post.from_shortcode(L.context, shortcode)
+                target_url = post.url
+                print(f"DEBUG: Extracted Instagram URL: {target_url[:50]}...")
+        except Exception as e:
+            print(f"Instagram Extraction Failed: {e}")
+
+    result = detect_ai_image(image_url=target_url)
     return {
         "score": result["score"],
         "verdict": result["verdict"],
@@ -200,50 +227,66 @@ async def analyze_video(request: VideoRequest):
     # For a URL, efficiently extracting frames is hard without downloading.
     # We will attempt to download a small portion or the whole file to temp.
     try:
-        # Download video to temp file
+        # Use yt-dlp to get direct URL if possible (handles TikTok, YouTube, etc.)
+        # Download video to temp file using yt-dlp for robustness
         import tempfile
-        
-        # Check size (head request)
-        head = requests.head(request.video_url)
-        content_length = int(head.headers.get('content-length', 0))
-        if content_length > 50 * 1024 * 1024: # 50MB limit
-             return {"score": 0, "verdict": "Video too large for analysis"}
-
-        r = requests.get(request.video_url, stream=True)
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-            for chunk in r.iter_content(chunk_size=1024*1024):
-                if chunk: tmp.write(chunk)
             tmp_path = tmp.name
-        
-        frames = extract_frames(tmp_path)
-        os.remove(tmp_path) # Cleanup
-        
-        if not frames:
-             return {"score": 0, "verdict": "Could not extract frames"}
-        
-        # Analyze frames
-        scores = []
-        for frame in frames:
-             res = detect_ai_image(image_bytes=frame)
-             scores.append(res['score'])
-        
-        avg_score = sum(scores) / len(scores) if scores else 0
-        
-        if avg_score > 80: verdict = "Highly Likely Deepfake/AI Video"
-        elif avg_score > 50: verdict = "Potential Deepfake"
-        else: verdict = "Likely Authentic Video"
 
-        return {
-            "score": avg_score,
-            "verdict": verdict,
-            "details": {
-                "frames_analyzed": len(frames),
-                "model": "Frame-by-Frame Analysis"
+        try:
+            ydl_opts = {
+                'format': 'best[ext=mp4]/best',
+                'outtmpl': tmp_path,
+                'overwrites': True,
+                'quiet': True,
+                'no_warnings': True,
+                'max_filesize': 50 * 1024 * 1024,  # 50MB limit
             }
-        }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([request.video_url])
+        except Exception as e:
+            print(f"yt-dlp download failed, attempting direct fetch: {e}")
+            # Fallback for direct links
+            try:
+                r = requests.get(request.video_url, stream=True, timeout=30)
+                with open(tmp_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=1024*1024):
+                        if chunk: f.write(chunk)
+            except Exception as re:
+                return {"score": 0, "verdict": "Video download failed", "details": str(re)}
+
+        
+        try:
+            frames = extract_frames(tmp_path)
+            if not frames:
+                 return {"score": 0, "verdict": "Could not extract frames"}
+            
+            # Analyze frames
+            scores = []
+            for frame in frames:
+                 res = detect_ai_image(image_bytes=frame)
+                 scores.append(res['score'])
+            
+            avg_score = sum(scores) / len(scores) if scores else 0
+            
+            if avg_score > 80: verdict = "Highly Likely Deepfake/AI Video"
+            elif avg_score > 50: verdict = "Potential Deepfake"
+            else: verdict = "Likely Authentic Video"
+
+            return {
+                "score": avg_score,
+                "verdict": verdict,
+                "details": {
+                    "frames_analyzed": len(frames),
+                    "model": "Frame-by-Frame Analysis"
+                }
+            }
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
         
     except Exception as e:
-        print(f"Video Video Error: {e}")
+        print(f"Video Processing Error: {e}")
         return {"score": 0, "verdict": "Video Processing Failed", "error": str(e)}
 
 @app.post("/detect/file")
