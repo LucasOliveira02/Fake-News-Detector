@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 from pypdf import PdfReader
 import docx
-import pandas as pd
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -349,15 +349,23 @@ async def analyze_file(file: UploadFile = File(...)):
             details = {"type": "docx", "extracted_chars": len(text)}
             
         elif "spreadsheetml" in content_type or "excel" in content_type:
-            # Excel Spreadsheet
-            df = pd.read_excel(io.BytesIO(contents))
-            # Flatten and convert all non-null values to strings
-            text_data = [str(val) for val in df.values.flatten() if pd.notna(val)]
-            text_block = " ".join(text_data[:1000]) # Limit to 1000 words/cells
+            # Excel Spreadsheet - Using openpyxl directly (lighter than pandas)
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
+            text_data = []
+            for sheet in wb.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    for cell in row:
+                        if cell is not None:
+                            text_data.append(str(cell))
+                    if len(text_data) > 1000: break
+                if len(text_data) > 1000: break
+            
+            text_block = " ".join(text_data[:1000])
             res = detect_ai_text(text_block)
             score = res["score"]
             verdict = res["verdict"]
-            details = {"type": "xlsx", "rows": len(df)}
+            details = {"type": "xlsx"}
             
         elif "video" in content_type:
             # Video Upload
