@@ -1,8 +1,30 @@
+# Local development
 node_modules
 dist
-.git
-.venv
 venv
-.env
+.venv
+*.venv
 **/__pycache__
 *.pyc
+
+# Environment and Secrets
+.env
+.env.*
+api/.env
+
+# Git
+.git
+.gitignore
+.vercel
+.vercelignore
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Documentation/Design
+temp_reference_repo_v2
+README.md
+
+# Frontend Source (already used by build, but we can ignore it from serverless function bundle specifically via vercel.json if needed, 
+# though vercel handles this automatically for standard structures)
