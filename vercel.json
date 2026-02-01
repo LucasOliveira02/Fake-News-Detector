@@ -1,18 +1,10 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "apps/api/main.py",
-            "use": "@vercel/python"
-        },
-        {
-            "src": "apps/web-client/package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "dist"
-            }
+    "functions": {
+        "apps/api/main.py": {
+            "runtime": "@vercel/python"
         }
-    ],
+    },
     "rewrites": [
         {
             "source": "/api/(.*)",
@@ -20,7 +12,7 @@
         },
         {
             "source": "/(.*)",
-            "destination": "apps/web-client/$1"
+            "destination": "/apps/web-client/$1"
         }
     ]
 }

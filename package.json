@@ -1,0 +1,8 @@
+{
+    "name": "fake-news-detector-monorepo",
+    "version": "1.0.0",
+    "scripts": {
+        "build": "cd apps/web-client && npm install && npm run build",
+        "install-all": "cd apps/web-client && npm install"
+    }
+}
