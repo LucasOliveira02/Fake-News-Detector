@@ -57,8 +57,18 @@ def read_root():
 
 import time
 from huggingface_hub import InferenceClient
-import yt_dlp
-import instaloader
+
+try:
+    import yt_dlp
+    HAS_YT_DLP = True
+except ImportError:
+    HAS_YT_DLP = False
+
+try:
+    import instaloader
+    HAS_INSTALOADER = True
+except ImportError:
+    HAS_INSTALOADER = False
 
 def detect_ai_text(text: str):
     """
@@ -213,7 +223,7 @@ async def analyze_image(request: ImageRequest):
     target_url = request.image_url
     
     # If the URL is from Instagram, we need to extract the direct image source
-    if "instagram.com" in target_url:
+    if "instagram.com" in target_url and HAS_INSTALOADER:
         try:
             loader = instaloader.Instaloader()
             # Extract the post shortcode from the URL
@@ -246,27 +256,30 @@ async def analyze_video(request: VideoRequest):
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             tmp_path = tmp.name
 
-        try:
-            ydl_opts = {
-                'format': 'best[ext=mp4]/best',
-                'outtmpl': tmp_path,
-                'overwrites': True,
-                'quiet': True,
-                'no_warnings': True,
-                'max_filesize': 50 * 1024 * 1024,  # 50MB limit
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([request.video_url])
-        except Exception as e:
-            print(f"yt-dlp download failed, attempting direct fetch: {e}")
-            # Fallback for direct links
+            if not HAS_YT_DLP:
+                return {"score": 0, "verdict": "Video analysis requires yt-dlp (not available on server)"}
+
             try:
-                r = requests.get(request.video_url, stream=True, timeout=30)
-                with open(tmp_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=1024*1024):
-                        if chunk: f.write(chunk)
-            except Exception as re:
-                return {"score": 0, "verdict": "Video download failed", "details": str(re)}
+                ydl_opts = {
+                    'format': 'best[ext=mp4]/best',
+                    'outtmpl': tmp_path,
+                    'overwrites': True,
+                    'quiet': True,
+                    'no_warnings': True,
+                    'max_filesize': 50 * 1024 * 1024,  # 50MB limit
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([request.video_url])
+            except Exception as e:
+                print(f"yt-dlp download failed, attempting direct fetch: {e}")
+                # Fallback for direct links
+                try:
+                    r = requests.get(request.video_url, stream=True, timeout=30)
+                    with open(tmp_path, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=1024*1024):
+                            if chunk: f.write(chunk)
+                except Exception as re:
+                    return {"score": 0, "verdict": "Video download failed", "details": str(re)}
 
         
         try:
