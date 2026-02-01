@@ -9,12 +9,17 @@ import io
 from PIL import Image
 try:
     import numpy as np
-    import cv2
+    import av
     HAS_VIDEO_DEPS = True
 except ImportError:
     HAS_VIDEO_DEPS = False
-from pypdf import PdfReader
-import docx
+try:
+    from pypdf import PdfReader
+    import docx
+    import openpyxl
+    HAS_DOC_DEPS = True
+except ImportError:
+    HAS_DOC_DEPS = False
 
 from dotenv import load_dotenv
 
@@ -52,8 +57,18 @@ def read_root():
 
 import time
 from huggingface_hub import InferenceClient
-import yt_dlp
-import instaloader
+
+try:
+    import yt_dlp
+    HAS_YT_DLP = True
+except ImportError:
+    HAS_YT_DLP = False
+
+try:
+    import instaloader
+    HAS_INSTALOADER = True
+except ImportError:
+    HAS_INSTALOADER = False
 
 def detect_ai_text(text: str):
     """
@@ -61,16 +76,13 @@ def detect_ai_text(text: str):
     Model: facebook/bart-large-mnli
     """
     api_key = os.environ.get("HUGGINGFACE_API_KEY")
-    score = 0
-    verdict = "Analysis Unavailable (Missing Key)"
-    
     if not api_key:
-        return {"score": 0, "verdict": "Likely Human (Dev Mode - No API Key)"}
+        raise HTTPException(status_code=400, detail="HUGGINGFACE_API_KEY is missing in server environment")
 
     if not text or len(text.strip()) < 5:
         return {"score": 0, "verdict": "Insufficient text for analysis"}
 
-    client = InferenceClient(token=api_key, timeout=30)
+    client = InferenceClient(token=api_key, timeout=15)
     # Using a faster DistilBART model
     model_id = "valhalla/distilbart-mnli-12-3"
     
@@ -113,9 +125,9 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
     """
     api_key = os.environ.get("HUGGINGFACE_API_KEY")
     if not api_key:
-        return {"score": 0, "verdict": "Likely Real (Dev Mode - No API Key)"}
+        raise HTTPException(status_code=400, detail="HUGGINGFACE_API_KEY is missing in server environment")
 
-    client = InferenceClient(token=api_key, timeout=30)
+    client = InferenceClient(token=api_key, timeout=15)
     model_id = "umm-maybe/AI-image-detector"
     
     try:
@@ -157,40 +169,55 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
         print(f"Image Detection Error: {e}")
         return {"score": 0, "verdict": "Analysis Failed"}
 
-def extract_frames(video_path, max_frames=5):
+def extract_frames(video_path, max_frames=2):
     """
-    Extracts explicit frames from a video file.
+    Extracts frames from a video file using PyAV with seeking for high performance.
     """
     if not HAS_VIDEO_DEPS:
-        print("Video dependencies (opencv/numpy) missing. Skipping frame extraction.")
+        print("Video dependencies (av/numpy) missing. Skipping frame extraction.")
         return []
+    
+    print(f"Extracting up to {max_frames} frames from: {video_path}")
     frames = []
     try:
-        cap = cv2.VideoCapture(video_path)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        if total_frames <= 0: return []
+        container = av.open(video_path)
+        stream = container.streams.video[0]
         
-        # Pick 5 evenly spaced frames
-        indices = np.linspace(0, total_frames-1, max_frames, dtype=int)
+        # Get duration in rational seconds
+        duration = float(container.duration) / av.time_base
+        if duration <= 0: return []
         
-        for i in indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            ret, frame = cap.read()
-            if ret:
-                # Convert to bytes for API
-                is_success, buffer = cv2.imencode(".jpg", frame)
-                if is_success:
-                    frames.append(buffer.tobytes())
-        cap.release()
+        # Pick timestamps to seek to
+        timestamps = [i * (duration / (max_frames + 1)) for i in range(1, max_frames + 1)]
+        
+        for ts in timestamps:
+            # Seek to a point slightly before the target to ensure we catch a keyframe
+            container.seek(int(ts * av.time_base), backward=True, any_frame=False)
+            
+            # Decode only until we get the next frame
+            found = False
+            for frame in container.decode(video=0):
+                # Convert to bytes (JPEG)
+                img = frame.to_image()
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG")
+                frames.append(buf.getvalue())
+                found = True
+                break # Only need one frame per seek
+            
+            if len(frames) >= max_frames:
+                break
+                
+        container.close()
     except Exception as e:
-        print(f"Frame Extraction Error: {e}")
+        print(f"PyAV Seek/Extraction Error: {e}")
     return frames
 
 # ---------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------
 
-@app.post("/detect/text")
+@app.post("/api/detect/text")
 async def analyze_text(request: TextRequest):
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
@@ -206,12 +233,12 @@ async def analyze_text(request: TextRequest):
         }
     }
 
-@app.post("/detect/image")
+@app.post("/api/detect/image")
 async def analyze_image(request: ImageRequest):
     target_url = request.image_url
     
     # If the URL is from Instagram, we need to extract the direct image source
-    if "instagram.com" in target_url:
+    if "instagram.com" in target_url and HAS_INSTALOADER:
         try:
             loader = instaloader.Instaloader()
             # Extract the post shortcode from the URL
@@ -233,7 +260,7 @@ async def analyze_image(request: ImageRequest):
         }
     }
 
-@app.post("/detect/video")
+@app.post("/api/detect/video")
 async def analyze_video(request: VideoRequest):
     # For a URL, efficiently extracting frames is hard without downloading.
     # We will attempt to download a small portion or the whole file to temp.
@@ -244,27 +271,37 @@ async def analyze_video(request: VideoRequest):
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             tmp_path = tmp.name
 
-        try:
-            ydl_opts = {
-                'format': 'best[ext=mp4]/best',
-                'outtmpl': tmp_path,
-                'overwrites': True,
-                'quiet': True,
-                'no_warnings': True,
-                'max_filesize': 50 * 1024 * 1024,  # 50MB limit
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([request.video_url])
-        except Exception as e:
-            print(f"yt-dlp download failed, attempting direct fetch: {e}")
-            # Fallback for direct links
+            if not HAS_YT_DLP:
+                return {"score": 0, "verdict": "Video analysis requires yt-dlp (not available on server)"}
+
             try:
-                r = requests.get(request.video_url, stream=True, timeout=30)
-                with open(tmp_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=1024*1024):
-                        if chunk: f.write(chunk)
-            except Exception as re:
-                return {"score": 0, "verdict": "Video download failed", "details": str(re)}
+                ydl_opts = {
+                    'format': 'best[ext=mp4]/best',
+                    'outtmpl': tmp_path,
+                    'overwrites': True,
+                    'quiet': True,
+                    'no_warnings': True,
+                    'max_filesize': 50 * 1024 * 1024,  # 50MB limit
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([request.video_url])
+            except Exception as e:
+                if "larger than max-filesize" in str(e).lower():
+                    return {"score": 0, "verdict": "Video too large (Max 50MB for URL analysis)"}
+                
+                print(f"yt-dlp download failed, attempting direct fetch: {e}")
+                # Fallback for direct links
+                try:
+                    r = requests.get(request.video_url, stream=True, timeout=30)
+                    content_length = r.headers.get('Content-Length')
+                    if content_length and int(content_length) > 50 * 1024 * 1024:
+                        return {"score": 0, "verdict": "Video too large (Max 50MB for URL analysis)"}
+                    
+                    with open(tmp_path, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=1024*1024):
+                            if chunk: f.write(chunk)
+                except Exception as re:
+                    return {"score": 0, "verdict": "Video download failed", "details": str(re)}
 
         
         try:
@@ -300,7 +337,7 @@ async def analyze_video(request: VideoRequest):
         print(f"Video Processing Error: {e}")
         return {"score": 0, "verdict": "Video Processing Failed", "error": str(e)}
 
-@app.post("/detect/file")
+@app.post("/api/detect/file")
 async def analyze_file(file: UploadFile = File(...)):
     content_type = file.content_type
     
@@ -357,7 +394,6 @@ async def analyze_file(file: UploadFile = File(...)):
             
         elif "spreadsheetml" in content_type or "excel" in content_type:
             # Excel Spreadsheet - Using openpyxl directly (lighter than pandas)
-            import openpyxl
             wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
             text_data = []
             for sheet in wb.worksheets:

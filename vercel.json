@@ -3,11 +3,11 @@
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "/api/index.py"
+            "destination": "apps/api/main.py"
         },
         {
             "source": "/(.*)",
-            "destination": "/apps/web-client/$1"
+            "destination": "apps/web-client/$1"
         }
     ]
 }

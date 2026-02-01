@@ -10,3 +10,5 @@ python-docx
 openpyxl
 yt-dlp
 instaloader
+av
+numpy
