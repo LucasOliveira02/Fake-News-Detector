@@ -1,0 +1,14 @@
+fastapi
+pydantic
+requests
+python-multipart
+pypdf
+Pillow
+python-dotenv
+huggingface_hub
+python-docx
+openpyxl
+yt-dlp
+instaloader
+av
+numpy
