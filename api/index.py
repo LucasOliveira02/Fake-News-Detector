@@ -66,11 +66,8 @@ def detect_ai_text(text: str):
     Model: facebook/bart-large-mnli
     """
     api_key = os.environ.get("HUGGINGFACE_API_KEY")
-    score = 0
-    verdict = "Analysis Unavailable (Missing Key)"
-    
     if not api_key:
-        return {"score": 0, "verdict": "Likely Human (Dev Mode - No API Key)"}
+        raise HTTPException(status_code=400, detail="HUGGINGFACE_API_KEY is missing in server environment")
 
     if not text or len(text.strip()) < 5:
         return {"score": 0, "verdict": "Insufficient text for analysis"}
@@ -118,7 +115,7 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
     """
     api_key = os.environ.get("HUGGINGFACE_API_KEY")
     if not api_key:
-        return {"score": 0, "verdict": "Likely Real (Dev Mode - No API Key)"}
+        raise HTTPException(status_code=400, detail="HUGGINGFACE_API_KEY is missing in server environment")
 
     client = InferenceClient(token=api_key, timeout=30)
     model_id = "umm-maybe/AI-image-detector"
