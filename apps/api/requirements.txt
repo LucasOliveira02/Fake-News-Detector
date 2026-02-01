@@ -4,11 +4,9 @@ requests
 python-multipart
 pypdf
 Pillow
-opencv-python-headless
 python-dotenv
 huggingface_hub
 python-docx
 openpyxl
 yt-dlp
 instaloader
-numpy

@@ -7,8 +7,12 @@ import os
 import json
 import io
 from PIL import Image
-import numpy as np
-import cv2
+try:
+    import numpy as np
+    import cv2
+    HAS_VIDEO_DEPS = True
+except ImportError:
+    HAS_VIDEO_DEPS = False
 from pypdf import PdfReader
 import docx
 
@@ -157,6 +161,9 @@ def extract_frames(video_path, max_frames=5):
     """
     Extracts explicit frames from a video file.
     """
+    if not HAS_VIDEO_DEPS:
+        print("Video dependencies (opencv/numpy) missing. Skipping frame extraction.")
+        return []
     frames = []
     try:
         cap = cv2.VideoCapture(video_path)
