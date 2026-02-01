@@ -82,7 +82,7 @@ def detect_ai_text(text: str):
     if not text or len(text.strip()) < 5:
         return {"score": 0, "verdict": "Insufficient text for analysis"}
 
-    client = InferenceClient(token=api_key, timeout=30)
+    client = InferenceClient(token=api_key, timeout=15)
     # Using a faster DistilBART model
     model_id = "valhalla/distilbart-mnli-12-3"
     
@@ -127,7 +127,7 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
     if not api_key:
         raise HTTPException(status_code=400, detail="HUGGINGFACE_API_KEY is missing in server environment")
 
-    client = InferenceClient(token=api_key, timeout=30)
+    client = InferenceClient(token=api_key, timeout=15)
     model_id = "umm-maybe/AI-image-detector"
     
     try:
@@ -169,45 +169,48 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
         print(f"Image Detection Error: {e}")
         return {"score": 0, "verdict": "Analysis Failed"}
 
-def extract_frames(video_path, max_frames=5):
+def extract_frames(video_path, max_frames=2):
     """
-    Extracts frames from a video file using PyAV for better efficiency and smaller bundle size.
+    Extracts frames from a video file using PyAV with seeking for high performance.
     """
     if not HAS_VIDEO_DEPS:
         print("Video dependencies (av/numpy) missing. Skipping frame extraction.")
         return []
     
+    print(f"Extracting up to {max_frames} frames from: {video_path}")
     frames = []
     try:
         container = av.open(video_path)
         stream = container.streams.video[0]
-        stream.thread_type = 'AUTO'
         
-        # Calculate total frames roughly
+        # Get duration in rational seconds
         duration = float(container.duration) / av.time_base
-        fps = float(stream.average_rate)
-        total_frames = int(duration * fps)
+        if duration <= 0: return []
         
-        if total_frames <= 0: return []
+        # Pick timestamps to seek to
+        timestamps = [i * (duration / (max_frames + 1)) for i in range(1, max_frames + 1)]
         
-        # Determine step for even spacing
-        step = max(1, total_frames // max_frames)
-        
-        count = 0
-        for frame in container.decode(video=0):
-            if count % step == 0:
-                # Convert frame to bytes (JPEG)
+        for ts in timestamps:
+            # Seek to a point slightly before the target to ensure we catch a keyframe
+            container.seek(int(ts * av.time_base), backward=True, any_frame=False)
+            
+            # Decode only until we get the next frame
+            found = False
+            for frame in container.decode(video=0):
+                # Convert to bytes (JPEG)
                 img = frame.to_image()
                 buf = io.BytesIO()
                 img.save(buf, format="JPEG")
                 frames.append(buf.getvalue())
+                found = True
+                break # Only need one frame per seek
+            
+            if len(frames) >= max_frames:
+                break
                 
-                if len(frames) >= max_frames:
-                    break
-            count += 1
         container.close()
     except Exception as e:
-        print(f"PyAV Frame Extraction Error: {e}")
+        print(f"PyAV Seek/Extraction Error: {e}")
     return frames
 
 # ---------------------------------------------------------
