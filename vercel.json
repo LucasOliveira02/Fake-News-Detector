@@ -1,22 +1,19 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "apps/api/main.py",
-            "use": "@vercel/python"
-        },
-        {
-            "src": "package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "apps/web-client/dist"
-            }
+    "functions": {
+        "apps/api/main.py": {
+            "runtime": "@vercel/python",
+            "excludeFiles": "{apps/web-client,node_modules,venv,.venv,**/__pycache__}/**"
         }
-    ],
+    },
     "rewrites": [
         {
             "source": "/api/(.*)",
             "destination": "apps/api/main.py"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "apps/web-client/$1"
         }
     ]
 }
