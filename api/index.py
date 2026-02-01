@@ -286,10 +286,17 @@ async def analyze_video(request: VideoRequest):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([request.video_url])
             except Exception as e:
+                if "larger than max-filesize" in str(e).lower():
+                    return {"score": 0, "verdict": "Video too large (Max 50MB for URL analysis)"}
+                
                 print(f"yt-dlp download failed, attempting direct fetch: {e}")
                 # Fallback for direct links
                 try:
                     r = requests.get(request.video_url, stream=True, timeout=30)
+                    content_length = r.headers.get('Content-Length')
+                    if content_length and int(content_length) > 50 * 1024 * 1024:
+                        return {"score": 0, "verdict": "Video too large (Max 50MB for URL analysis)"}
+                    
                     with open(tmp_path, 'wb') as f:
                         for chunk in r.iter_content(chunk_size=1024*1024):
                             if chunk: f.write(chunk)

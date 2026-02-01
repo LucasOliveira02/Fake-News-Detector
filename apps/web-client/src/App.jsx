@@ -168,10 +168,15 @@ function App() {
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file && file.size > 4.5 * 1024 * 1024) {
-                    alert("File is too large for direct upload (Max 4.5MB on Vercel). Please use the Image/Video URL tabs for larger content.");
+                    setTabErrors(prev => ({
+                      ...prev,
+                      file: "File too large for direct upload (Max 4.5MB). Please use the URL tabs for larger content."
+                    }));
+                    setSelectedFile(null);
                     e.target.value = "";
                     return;
                   }
+                  setTabErrors(prev => ({ ...prev, file: null }));
                   setSelectedFile(file);
                 }}
               />
