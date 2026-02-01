@@ -1,15 +1,9 @@
 {
     "version": 2,
-    "functions": {
-        "apps/api/main.py": {
-            "runtime": "@vercel/python",
-            "excludeFiles": "{apps/web-client,node_modules,venv,.venv,**/__pycache__}/**"
-        }
-    },
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "apps/api/main.py"
+            "destination": "api/index.py"
         },
         {
             "source": "/(.*)",
