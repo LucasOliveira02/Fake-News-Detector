@@ -202,7 +202,7 @@ def extract_frames(video_path, max_frames=5):
 # Endpoints
 # ---------------------------------------------------------
 
-@app.post("/detect/text")
+@app.post("/api/detect/text")
 async def analyze_text(request: TextRequest):
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
@@ -218,7 +218,7 @@ async def analyze_text(request: TextRequest):
         }
     }
 
-@app.post("/detect/image")
+@app.post("/api/detect/image")
 async def analyze_image(request: ImageRequest):
     target_url = request.image_url
     
@@ -245,7 +245,7 @@ async def analyze_image(request: ImageRequest):
         }
     }
 
-@app.post("/detect/video")
+@app.post("/api/detect/video")
 async def analyze_video(request: VideoRequest):
     # For a URL, efficiently extracting frames is hard without downloading.
     # We will attempt to download a small portion or the whole file to temp.
@@ -315,7 +315,7 @@ async def analyze_video(request: VideoRequest):
         print(f"Video Processing Error: {e}")
         return {"score": 0, "verdict": "Video Processing Failed", "error": str(e)}
 
-@app.post("/detect/file")
+@app.post("/api/detect/file")
 async def analyze_file(file: UploadFile = File(...)):
     content_type = file.content_type
     
