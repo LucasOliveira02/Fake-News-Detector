@@ -1,7 +1,5 @@
-apps/api/venv
-apps/api/.venv
-apps/web-client/node_modules
-apps/web-client/dist
+node_modules
+dist
 .git
 .venv
 venv
