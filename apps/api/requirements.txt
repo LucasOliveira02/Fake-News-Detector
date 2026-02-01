@@ -12,4 +12,6 @@ huggingface_hub
 python-docx
 openpyxl
 pandas
-
+yt-dlp
+instaloader
+numpy
