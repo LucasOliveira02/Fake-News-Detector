@@ -158,14 +158,22 @@ function App() {
                 <div className="upload-text">
                   <strong>Click to upload</strong> or drag and drop
                 </div>
-                <div className="upload-subtext">PDF, Image, Word, Excel, or Video (max 50MB)</div>
+                <div className="upload-subtext">PDF, Image, Word, Excel, or Video (Max 4MB on Vercel)</div>
                 <div className="browse-btn">Browse Files</div>
               </label>
               <input
                 id="file-input"
                 type="file"
                 className="hidden-file-input"
-                onChange={(e) => setSelectedFile(e.target.files[0])}
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file && file.size > 4.5 * 1024 * 1024) {
+                    alert("File is too large for direct upload (Max 4.5MB on Vercel). Please use the Image/Video URL tabs for larger content.");
+                    e.target.value = "";
+                    return;
+                  }
+                  setSelectedFile(file);
+                }}
               />
               {selectedFile && (
                 <div className="selected-file-badge">
