@@ -1,0 +1,7 @@
+fastapi
+pydantic
+requests
+python-multipart
+Pillow
+python-dotenv
+huggingface_hub
