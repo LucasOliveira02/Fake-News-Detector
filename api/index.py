@@ -9,7 +9,7 @@ import io
 from PIL import Image
 try:
     import numpy as np
-    import cv2
+    import av
     HAS_VIDEO_DEPS = True
 except ImportError:
     HAS_VIDEO_DEPS = False
@@ -171,31 +171,43 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
 
 def extract_frames(video_path, max_frames=5):
     """
-    Extracts explicit frames from a video file.
+    Extracts frames from a video file using PyAV for better efficiency and smaller bundle size.
     """
     if not HAS_VIDEO_DEPS:
-        print("Video dependencies (opencv/numpy) missing. Skipping frame extraction.")
+        print("Video dependencies (av/numpy) missing. Skipping frame extraction.")
         return []
+    
     frames = []
     try:
-        cap = cv2.VideoCapture(video_path)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        container = av.open(video_path)
+        stream = container.streams.video[0]
+        stream.thread_type = 'AUTO'
+        
+        # Calculate total frames roughly
+        duration = float(container.duration) / av.time_base
+        fps = float(stream.average_rate)
+        total_frames = int(duration * fps)
+        
         if total_frames <= 0: return []
         
-        # Pick 5 evenly spaced frames
-        indices = np.linspace(0, total_frames-1, max_frames, dtype=int)
+        # Determine step for even spacing
+        step = max(1, total_frames // max_frames)
         
-        for i in indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            ret, frame = cap.read()
-            if ret:
-                # Convert to bytes for API
-                is_success, buffer = cv2.imencode(".jpg", frame)
-                if is_success:
-                    frames.append(buffer.tobytes())
-        cap.release()
+        count = 0
+        for frame in container.decode(video=0):
+            if count % step == 0:
+                # Convert frame to bytes (JPEG)
+                img = frame.to_image()
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG")
+                frames.append(buf.getvalue())
+                
+                if len(frames) >= max_frames:
+                    break
+            count += 1
+        container.close()
     except Exception as e:
-        print(f"Frame Extraction Error: {e}")
+        print(f"PyAV Frame Extraction Error: {e}")
     return frames
 
 # ---------------------------------------------------------
