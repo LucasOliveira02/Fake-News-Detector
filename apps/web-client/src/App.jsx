@@ -198,6 +198,12 @@ function App() {
                 {currentResult.score.toFixed(1)}%
               </div>
               <div className="score-label">AI Generation Probability</div>
+
+              {currentResult.confidence_score !== undefined && (
+                <div className="confidence-label">
+                  Algorithm Confidence: <strong>{currentResult.confidence_score}%</strong>
+                </div>
+              )}
             </div>
           </div>
         )}

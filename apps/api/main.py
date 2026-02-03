@@ -13,6 +13,10 @@ from pypdf import PdfReader
 import docx
 import pandas as pd
 from dotenv import load_dotenv
+try:
+    from .ai_confidence import calculate_ai_confidence
+except ImportError:
+    from ai_confidence import calculate_ai_confidence
 
 load_dotenv()
 api_key_status = os.environ.get("HUGGINGFACE_API_KEY")
@@ -61,7 +65,7 @@ def detect_ai_text(text: str):
     verdict = "Analysis Unavailable (Missing Key)"
     
     if not api_key:
-        return {"score": 0, "verdict": "Likely Human (Dev Mode - No API Key)"}
+        return {"score": 0, "verdict": "Likely Human (Dev Mode - No API Key)", "is_mock": True}
 
     if not text or len(text.strip()) < 5:
         return {"score": 0, "verdict": "Insufficient text for analysis"}
@@ -109,7 +113,7 @@ def detect_ai_image(image_url: str = None, image_bytes: bytes = None):
     """
     api_key = os.environ.get("HUGGINGFACE_API_KEY")
     if not api_key:
-        return {"score": 0, "verdict": "Likely Real (Dev Mode - No API Key)"}
+        return {"score": 0, "verdict": "Likely Real (Dev Mode - No API Key)", "is_mock": True}
 
     client = InferenceClient(token=api_key, timeout=30)
     model_id = "umm-maybe/AI-image-detector"
@@ -190,11 +194,20 @@ async def analyze_text(request: TextRequest):
     
     result = detect_ai_text(request.text)
     
+    word_count = len(request.text.split())
+    confidence = calculate_ai_confidence(
+        result["score"], 
+        "text", 
+        {"word_count": word_count, "is_mock": result.get("is_mock", False)}
+    )
+
     return {
         "score": result["score"],
+        "confidence_score": confidence,
         "verdict": result["verdict"],
         "details": {
             "char_count": len(request.text),
+            "word_count": word_count,
             "model": "valhalla/distilbart-mnli-12-3"
         }
     }
@@ -217,8 +230,15 @@ async def analyze_image(request: ImageRequest):
             pass
 
     result = detect_ai_image(image_url=target_url)
+    confidence = calculate_ai_confidence(
+        result["score"], 
+        "image", 
+        {"is_mock": result.get("is_mock", False)}
+    )
+    
     return {
         "score": result["score"],
+        "confidence_score": confidence,
         "verdict": result["verdict"],
         "details": {
             "source": "url",
@@ -277,8 +297,19 @@ async def analyze_video(request: VideoRequest):
             elif avg_score > 50: verdict = "Potential Deepfake"
             else: verdict = "Likely Authentic Video"
 
+            confidence = calculate_ai_confidence(
+                avg_score, 
+                "video", 
+                {
+                    "frames_analyzed": len(frames), 
+                    "signals": scores,
+                    "is_mock": any(s == 0 for s in scores) and os.environ.get("HUGGINGFACE_API_KEY") is None
+                }
+            )
+
             return {
                 "score": avg_score,
+                "confidence_score": confidence,
                 "verdict": verdict,
                 "details": {
                     "frames_analyzed": len(frames),
@@ -391,8 +422,20 @@ async def analyze_file(file: UploadFile = File(...)):
     except Exception as e:
         return {"score": 0, "verdict": f"File Error: {str(e)}"}
 
+    # Calculate confidence based on the resolved score/type
+    conf_details = details.copy()
+    if score == 0: # Simple heuristic for errors/mock
+        conf_details["is_mock"] = True
+    
+    # Pass individual scores if available for video
+    if "frames_analyzed" in details and "scores" in locals():
+        conf_details["signals"] = scores
+
+    confidence = calculate_ai_confidence(score, "file", conf_details)
+
     return {
         "score": score,
+        "confidence_score": confidence,
         "verdict": verdict,
         "details": details
     }
