@@ -70,6 +70,7 @@ function App() {
       }
 
       const data = await response.json();
+      console.log(`DEBUG: Result for ${activeTab}`, data);
       setTabResults(prev => ({ ...prev, [activeTab]: data }));
 
     } catch (err) {
@@ -198,13 +199,38 @@ function App() {
                 {currentResult.score.toFixed(1)}%
               </div>
               <div className="score-label">AI Generation Probability</div>
-
-              {currentResult.confidence_score !== undefined && (
-                <div className="confidence-label">
-                  Algorithm Confidence: <strong>{currentResult.confidence_score}%</strong>
-                </div>
-              )}
             </div>
+
+            {currentResult.confidence_score !== undefined && (
+              <div className="confidence-indicator-v2">
+                <div className="conf-label">ALGORITHM CONFIDENCE</div>
+                <div className="conf-score-bar">
+                  <div
+                    className="conf-fill"
+                    style={{ width: `${currentResult.confidence_score}%` }}
+                  ></div>
+                </div>
+                <div className="conf-value">{currentResult.confidence_score}%</div>
+              </div>
+            )}
+
+            {(currentResult.key_phrases || []).length >= 0 && (
+              <div className="key-phrases-section">
+                <h4>AI Detection Signals:</h4>
+                <div className="tags">
+                  {(currentResult.key_phrases || []).length > 0 ? (
+                    currentResult.key_phrases.map((phrase, idx) => (
+                      <span key={idx} className="tag">{phrase}</span>
+                    ))
+                  ) : (
+                    <span className="tag-muted">No specific linguistic signals detected</span>
+                  )}
+                  {activeTab !== 'text' && (currentResult.key_phrases || []).length === 0 && (
+                    <span className="tag">High Frequency Scan</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

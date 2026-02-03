@@ -393,9 +393,118 @@ pre {
 .confidence-label {
   margin-top: 1rem;
   font-size: 0.9rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .confidence-label strong {
-  color: #333;
+  color: var(--color-primary);
+}
+
+.confidence-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 20px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.conf-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--color-primary);
+}
+
+.confidence-indicator strong {
+  color: var(--color-text-main);
+}
+
+.confidence-indicator-v2 {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.conf-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.conf-score-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.conf-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  box-shadow: 0 0 10px var(--color-primary);
+  transition: width 1s ease-in-out;
+}
+
+.conf-value {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.key-phrases-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.key-phrases-section h4 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag {
+  background: var(--glass-shard);
+  color: var(--color-text-main);
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s;
+}
+
+.tag:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--color-primary);
+}
+
+.tag-muted {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 0.4rem 0;
 }

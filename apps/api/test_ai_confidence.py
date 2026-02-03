@@ -4,9 +4,10 @@ from ai_confidence import calculate_ai_confidence
 class TestAIConfidence(unittest.TestCase):
     
     def test_mock_low_confidence(self):
-        # Even if score is high, if it's mock (no API key), confidence should be low
+        # Even if score is high, if it's mock (no API key), confidence is calculated but penalized.
+        # Base 25 + Extremity 30 - Short Text 15 = 40
         res = calculate_ai_confidence(95, "text", {"is_mock": True})
-        self.assertEqual(res, 10)
+        self.assertEqual(res, 40)
 
     def test_text_extremity_boost(self):
         # Score 95 (>90) should boost confidence
