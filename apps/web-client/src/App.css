@@ -390,3 +390,12 @@ pre {
     transform: translateY(0);
   }
 }
+.confidence-label {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.confidence-label strong {
+  color: #333;
+}
